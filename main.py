@@ -6,6 +6,7 @@ The front page (entry.png, one dated broadsheet summing up Thursday
 program copies it into the output directory the grader provides, so
 every run ships the exact same bytes.
 """
+import hashlib
 import os
 import shutil
 
@@ -22,6 +23,20 @@ def run():
         raise RuntimeError(
             f"entry.png copy failed: {os.path.getsize(target)} bytes "
             f"written, {os.path.getsize(source)} expected")
+    # Size alone cannot catch a copy that is the right length but the
+    # wrong bytes (disk error, truncated write padded out). Compare the
+    # SHA-256 digest of what landed against the committed source and
+    # fail loudly on any mismatch.
+    def digest(path):
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    if digest(target) != digest(source):
+        raise RuntimeError(
+            "entry.png copy failed: SHA-256 mismatch between "
+            f"{target} and {source}")
     return 0
 
 
